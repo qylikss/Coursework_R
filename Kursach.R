@@ -12,24 +12,30 @@ if(!("dplyr" %in% installed.packages())){
 library(dplyr)
 tail(df)
 df <- filter(df, 
-             Дата.транзакции < '01/09/2022' &
-               Кол.во - as.integer(Кол.во) == 0 &
-               Сумма.без.скидки != 0)
+             as.Date(Дата.транзакции, format = "%d/%m/%Y") < 
+               as.Date('01/09/2022', format = "%d/%m/%Y") &
+             Кол.во - as.integer(Кол.во) == 0 &
+             Сумма.без.скидки != 0)
 View(df)
-
+tail(df)
 # Группировка по чекам ----------------------------------------------------
 sale_sum <- aggregate(df, Сумма.продажи ~ Чек, FUN=sum) #Общая сумма продажи
 marja_sum <- aggregate(df, Маржа ~ Чек, FUN=sum) #Общая маржа
 count_pos <- aggregate(df, Кол.во ~ Чек, FUN=sum) #Кол-во позиций в чеке
 unique_pos <- summarise(group_by(df, Чек), 
                         'Уникальные.товары'=length(unique(Товар))) #Уникальные позиции
-client <- summarise(group_by(df, Чек), 'Клиент'=unique(Клиент)) #Клиент
-df_check <- data.frame(sale_sum[1],
+client <- summarise(group_by(df, Чек), 'Клиент'=Клиент[1]) #Клиенt
+date <- summarise(group_by(df, Чек), 'Дата.транзакции'=Дата.транзакции[1])
+df_check <- data.frame(date[2],
+                       sale_sum[1],
                        client[2],
                        unique_pos[2],
                        count_pos[2],
                        sale_sum[2],
                        marja_sum[2])
+df_check <- df_check[order(as.Date(df_check$Дата.транзакции, 
+                                    format = "%d/%m/%Y"), 
+                            decreasing = F), ] 
 View(df_check)
 # Группировка по клиентам -------------------------------------------------
 mean_int <- function(arr){
@@ -55,19 +61,19 @@ sale_sum <- aggregate(df_check, Маржа ~ Клиент, FUN=sum) #Прине�
 loss_sum <- summarise(group_by(df_check, Клиент), 'Унес'=
                       (sum(Сумма.продажи) - sum(Маржа))) #Унес
 count_check <- aggregate(df_check, Чек ~ Клиент, FUN=length) #Кол-во чеков
-first_date <- summarise(group_by(df, Клиент), 'Посещение1'=
+first_date <- summarise(group_by(df_check, Клиент), 'Посещение1'=
                           Дата.транзакции[1]) #Первое посещение
-diff_date <- summarise(group_by(df, Клиент), "Разница"=
+diff_date <- summarise(group_by(df_check, Клиент), "Разница"=
                        (as.Date(Дата.транзакции[length(Дата.транзакции)], 
                                format = "%d/%m/%Y") - 
                        as.Date(Дата.транзакции[1], 
                                  format = "%d/%m/%Y"))) #Разница посл. и 1 дня 
-passed_time <- summarise(group_by(df, Клиент), "Прошло"=
+passed_time <- summarise(group_by(df_check, Клиент), "Прошло"=
                            (as.Date('01/09/2022', 
                                     format = "%d/%m/%Y") - 
                               as.Date(Дата.транзакции[length(Дата.транзакции)], 
                                       format = "%d/%m/%Y"))) #Прошло дней
-date_int <- summarise(group_by(df, Клиент), 'Средний интервал'=
+date_int <- summarise(group_by(df_check, Клиент), 'Средний интервал'=
                         mean_int(Дата.транзакции))
 df_client <- data.frame(sale_sum[1],
                        count_check[2],
@@ -79,3 +85,13 @@ df_client <- data.frame(sale_sum[1],
                        passed_time[2]
                        )
 View(df_client)
+
+# пока так ----------------------------------------------------------------
+df_train <- filter(date_df, 
+                   as.Date(Дата.транзакции, format = "%d/%m/%Y") >
+                     as.Date('01/09/2022', format = "%d/%m/%Y") &
+                     as.Date(Дата.транзакции, format = "%d/%m/%Y") <
+                     as.Date('01/10/2022', format = "%d/%m/%Y") &
+                     Кол.во - as.integer(Кол.во) == 0 &
+                     Сумма.без.скидки != 0)
+View(df_train)
