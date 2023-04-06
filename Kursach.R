@@ -114,6 +114,7 @@ model <-  glm(Присутствие ~
                 Маржа +
                 Средний.интервал +
                 Разница +
+                Посещение1 +
                 Прошло, 
               data=df_client_train, family = binomial(link="logit"))
 summary(model)
@@ -171,4 +172,4 @@ plot(ROCPer, colorize = TRUE,
      main = "ROC CURVE" )
 abline(a = 0 , b = 1 )
 auc <- round(auc, 4)
-legend(.45 , .15 , auc, title = "AUC" , cex = 0.8 )
+legend(.6 , .10 , auc, title = "AUC" , cex = 0.8 )
