@@ -1,4 +1,4 @@
-date_df<-read.csv(file='/Users/qylikys/R/R_practice/Kursach/transactions.csv', 
+date_df<-read.csv(file='/Users/PC13/Downloads/transactions.csv', 
                   header=T, sep='\t', row.names=NULL)
 # Предобработка данных ----------------------------------------------------
 date_df <- data.frame(date_df)
@@ -173,3 +173,18 @@ plot(ROCPer, colorize = TRUE,
 abline(a = 0 , b = 1 )
 auc <- round(auc, 4)
 legend(.6 , .10 , auc, title = "AUC" , cex = 0.8 )
+
+breaks_sold <- cut(df_client_train$Унес, breaks = 10)
+
+parse_levels_cut <- function(levels_vec) {
+  return(
+    levels_vec %>% 
+      gsub(pattern = "\\[|\\]|\\(|\\)", replacement = "")  %>% 
+      strsplit(split = ",") %>% 
+      unlist() %>% 
+      as.numeric() %>% 
+      unique()
+  )
+}
+
+cut(new_df_client_test$Унес, breaks = parse_levels_cut(levels_vec = levels(breaks_sold)))
