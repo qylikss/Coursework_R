@@ -1,4 +1,4 @@
-date_df<-read.csv(file='/Users/PC13/Downloads/transactions.csv', 
+date_df<-read.csv(file='/Users/PC5/Downloads/transactions.csv', 
                   header=T, sep='\t', row.names=NULL)
 # Предобработка данных ----------------------------------------------------
 date_df <- data.frame(date_df)
@@ -174,7 +174,7 @@ abline(a = 0 , b = 1 )
 auc <- round(auc, 4)
 legend(.6 , .10 , auc, title = "AUC" , cex = 0.8 )
 
-breaks_sold <- cut(df_client_train$Унес, breaks = 10)
+
 
 parse_levels_cut <- function(levels_vec) {
   return(
@@ -187,4 +187,43 @@ parse_levels_cut <- function(levels_vec) {
   )
 }
 
-cut(new_df_client_test$Унес, breaks = parse_levels_cut(levels_vec = levels(breaks_sold)))
+breaks_sold <- cut(df_client_train$Унес, breaks = 10)
+df_client_train$breaks_sold <- as.numeric(breaks_sold)
+new_df_client_test$breaks_sold <-  as.numeric(cut(new_df_client_test$Унес, breaks = parse_levels_cut(levels_vec = levels(breaks_sold))))
+
+breaks_marja <- cut(df_client_train$Маржа, breaks = 10)
+df_client_train$breaks_marja <- as.numeric(breaks_marja)
+new_df_client_test$breaks_marja <-  as.numeric(cut(new_df_client_test$Маржа, breaks = parse_levels_cut(levels_vec = levels(breaks_marja))))
+
+breaks_check <- cut(df_client_train$Чек, breaks = 10)
+df_client_train$breaks_check <- as.numeric(breaks_check)
+new_df_client_test$breaks_check <-  as.numeric(cut(new_df_client_test$Чек, breaks = parse_levels_cut(levels_vec = levels(breaks_check))))
+
+breaks_avg <- cut(df_client_train$Средний.интервал, breaks = 10)
+df_client_train$breaks_avg <- as.numeric(breaks_avg)
+new_df_client_test$breaks_avg <-  as.numeric(cut(new_df_client_test$Средний.интервал, breaks = parse_levels_cut(levels_vec = levels(breaks_avg))))
+breaks_diff <- cut(df_client_train$Разница, breaks = 10)
+df_client_train$breaks_diff <- as.numeric(breaks_diff)
+new_df_client_test$breaks_diff <-  as.numeric(cut(new_df_client_test$Разница, breaks = parse_levels_cut(levels_vec = levels(breaks_diff))))
+
+breaks_last <- cut(df_client_train$Прошло, breaks = 10)
+df_client_train$breaks_last <- as.numeric(breaks_last)
+new_df_client_test$breaks_last <-  as.numeric(cut(new_df_client_test$Прошло, breaks = parse_levels_cut(levels_vec = levels(breaks_last))))
+
+
+df_client_train <- subset(df, !is.na(df_client_train))
+new_df_client_test <- subset(df, !is.na(new_df_client_test))
+
+model <-  glm(Присутствие ~ 
+                Чек +
+                Унес +
+                Маржа +
+                Средний.интервал +
+                Разница +
+                Прошло +
+                breaks_sold +
+                breaks_marja +
+                breaks_avg +
+                breaks_diff +
+                breaks_last, 
+              data=df_client_train, family = binomial(link="logit"))
