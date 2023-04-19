@@ -1,4 +1,4 @@
-date_df<-read.csv(file='/Users/PC5/Downloads/transactions.csv', 
+date_df<-read.csv(file='/Users/qylikys/R/R_practice/Kursach/transactions.csv', 
                   header=T, sep='\t', row.names=NULL)
 # Предобработка данных ----------------------------------------------------
 date_df <- data.frame(date_df)
@@ -142,6 +142,7 @@ temp_df <- summarise(group_by(last_df, Клиент), Присутствие=1)
 # Прогнозируем на последний месяц -----------------------------------------
 new_df_client_test <- dplyr::left_join(new_df_client, temp_df, by = "Клиент")
 new_df_client_test[is.na(new_df_client_test)] <- 0
+
 predictResult <- predict(model, newdata = new_df_client_test, type="response")
 predictResult <- ifelse(predictResult >= 0.5, 1, 0 )
 #Сравниваем результат прогнозирования с последний месяцем
@@ -210,19 +211,28 @@ breaks_last <- cut(df_client_train$Прошло, breaks = 10)
 df_client_train$breaks_last <- as.numeric(breaks_last)
 new_df_client_test$breaks_last <-  as.numeric(cut(new_df_client_test$Прошло, breaks = parse_levels_cut(levels_vec = levels(breaks_last))))
 
+df_client_train$Присутствие2 <- df_client_train$Присутствие
+df_client_train <- subset(df_client_train, select = - c(Присутствие))
+names(df_client_train)[names(df_client_train)=="Присутствие2"] <- "Присутствие"
 
-df_client_train <- subset(df, !is.na(df_client_train))
-new_df_client_test <- subset(df, !is.na(new_df_client_test))
+new_df_client_test$Присутствие2 <- new_df_client_test$Присутствие
+new_df_client_test <- subset(new_df_client_test, select = - c(Присутствие))
+names(new_df_client_test)[names(new_df_client_test)=="Присутствие2"] <- "Присутствие"
+
+df_client_train <- na.omit(df_client_train)
+new_df_client_test <- na.omit(new_df_client_test)
 
 model <-  glm(Присутствие ~ 
                 Чек +
                 Унес +
                 Маржа +
+                Посещение1 +
                 Средний.интервал +
                 Разница +
                 Прошло +
                 breaks_sold +
                 breaks_marja +
+                breaks_check +
                 breaks_avg +
                 breaks_diff +
                 breaks_last, 
