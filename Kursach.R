@@ -13,7 +13,7 @@ if(!("dplyr" %in% installed.packages())){
   install.packages("dplyr") 
 }
 library(dplyr)
-prelast_month <- as.Date('01/09/2022', format = "%d/%m/%Y")
+prelast_month <- as.Date('01/08/2022', format = "%d/%m/%Y")
 last_month <- as.Date('01/10/2022', format = "%d/%m/%Y")
 df <- filter(df, 
              Дата.транзакции < prelast_month &
@@ -108,16 +108,6 @@ df_train <- filter(date_df,
 new_month <- data.frame(Клиент = unique(df_train$Клиент), Присутствие = 1)
 df_client_train <- dplyr::left_join(df_client, new_month, by = "Клиент")
 df_client_train[is.na(df_client_train)] <- 0
-model <-  glm(Присутствие ~ 
-                Чек +
-                Унес +
-                Маржа +
-                Средний.интервал +
-                Разница +
-                Посещение1 +
-                Прошло, 
-              data=df_client_train, family = binomial(link="logit"))
-summary(model)
 # Группировки для основного периода + предпоследнйи месяц -----------------
 new_df <- data.frame(prelast_df)
 new_df$Сумма.продажи <- as.numeric(gsub('NULL', '0', new_df$Сумма.продажи))
@@ -142,39 +132,6 @@ temp_df <- summarise(group_by(last_df, Клиент), Присутствие=1)
 # Прогнозируем на последний месяц -----------------------------------------
 new_df_client_test <- dplyr::left_join(new_df_client, temp_df, by = "Клиент")
 new_df_client_test[is.na(new_df_client_test)] <- 0
-
-predictResult <- predict(model, newdata = new_df_client_test, type="response")
-predictResult <- ifelse(predictResult >= 0.5, 1, 0 )
-#Сравниваем результат прогнозирования с последний месяцем
-#Матрица неточностей
-table(new_df_client_test$Присутствие, predictResult)
-#Точность модели
-missing_classerr <- mean(predictResult != new_df_client_test$Присутствие)
-print(paste( 'Accuracy =' , 1 - missing_classerr))
-if(!("caTools" %in% installed.packages())){
-  install.packages("caTools") 
-}
-library(caTools)
-if(!("ROCR" %in% installed.packages())){
-  install.packages("ROCR") 
-}
-library(ROCR)
-# Кривая ROC-AUC
-ROCPred <- prediction(predictResult, new_df_client_test$Присутствие)
-ROCPer <- performance(ROCPred, measure = "tpr" ,
-                      x.measure = "fpr" )
-auc <- performance(ROCPred, measure = "auc" )
-auc <-auc@y.values[[1]]
-auc
-# Построение кривой
-plot(ROCPer)
-plot(ROCPer, colorize = TRUE,
-     print.cutoffs.at = seq( 0.1 , by = 0.1 ),
-     main = "ROC CURVE" )
-abline(a = 0 , b = 1 )
-auc <- round(auc, 4)
-legend(.6 , .10 , auc, title = "AUC" , cex = 0.8 )
-
 
 
 parse_levels_cut <- function(levels_vec) {
@@ -237,3 +194,47 @@ model <-  glm(Присутствие ~
                 breaks_diff +
                 breaks_last, 
               data=df_client_train, family = binomial(link="logit"))
+summary(model)
+predictResult <- predict(model, newdata = new_df_client_test, type="response")
+predictResult <- ifelse(predictResult >= 0.5, 1, 0 )
+#Сравниваем результат прогнозирования с последний месяцем
+#Матрица неточностей
+mx <- table(new_df_client_test$Присутствие, predictResult)
+mx
+TN <-  mx[1]
+FP <- mx[2]
+FN <- mx[3]
+TP <- mx[4]
+precision <- TP / (TP + FP)
+recall <- TP / (TP + FN)
+F1 <- 2 * precision * recall / (precision + recall)
+Accuracy <- (TP + TN) / (TP + TN + FP + FN)
+precision
+recall
+F1
+Accuracy
+#Точность модели
+missing_classerr <- mean(predictResult != new_df_client_test$Присутствие)
+print(paste( 'Accuracy =' , 1 - missing_classerr))
+
+
+if(!("ROCR" %in% installed.packages())){
+  install.packages("ROCR") 
+}
+library(ROCR)
+# Кривая ROC-AUC
+ROCPred <- prediction(predictResult, new_df_client_test$Присутствие)
+ROCPer <- performance(ROCPred, measure = "tpr" ,
+                      x.measure = "fpr" )
+auc <- performance(ROCPred, measure = "auc" )
+auc <-auc@y.values[[1]]
+auc
+# Построение кривой
+plot(ROCPer)
+plot(ROCPer, colorize = TRUE,
+     print.cutoffs.at = seq( 0.1 , by = 0.1),
+     main = "ROC CURVE" )
+abline(a = 0 , b = 1 )
+auc <- round(auc, 4)
+legend(.6 , .10 , auc, title = "AUC" , cex = 0.8)
+
