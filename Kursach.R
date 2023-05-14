@@ -1,4 +1,4 @@
-date_df<-read.csv(file='/Users/qylikys/R/R_practice/Kursach/transactions.csv', 
+date_df<-read.csv(file='/Users/qylikys/R/Kursach/transactions.csv', 
                   header=T, sep='\t', row.names=NULL)
 # Предобработка данных ----------------------------------------------------
 date_df <- data.frame(date_df)
@@ -13,7 +13,7 @@ if(!("dplyr" %in% installed.packages())){
   install.packages("dplyr") 
 }
 library(dplyr)
-prelast_month <- as.Date('01/08/2022', format = "%d/%m/%Y")
+prelast_month <- as.Date('01/06/2022', format = "%d/%m/%Y")
 last_month <- as.Date('01/10/2022', format = "%d/%m/%Y")
 df <- filter(df, 
              Дата.транзакции < prelast_month &
@@ -108,13 +108,23 @@ df_train <- filter(date_df,
 new_month <- data.frame(Клиент = unique(df_train$Клиент), Присутствие = 1)
 df_client_train <- dplyr::left_join(df_client, new_month, by = "Клиент")
 df_client_train[is.na(df_client_train)] <- 0
+model <-  glm(Присутствие ~ 
+                Чек +
+                Унес +
+                Маржа +
+                Средний.интервал +
+                Разница +
+                Посещение1 +
+                Прошло, 
+              data=df_client_train, family = binomial(link="logit"))
+summary(model)
 # Группировки для основного периода + предпоследнйи месяц -----------------
 new_df <- data.frame(prelast_df)
 new_df$Сумма.продажи <- as.numeric(gsub('NULL', '0', new_df$Сумма.продажи))
 new_df$Сумма.без.скидки <- as.numeric(gsub('NULL', '0', new_df$Сумма.без.скидки))
 new_df$Дата.транзакции <- as.Date(new_df$Дата.транзакции, format="%d/%m/%Y")
 new_df <- filter(new_df, 
-                 Дата.транзакции < last_month &
+                 Дата.транзакции > prelast_month &
                    Кол.во - as.integer(Кол.во) == 0 &
                    Сумма.без.скидки != 0)
 new_df_check <- group_by_check(new_df)
@@ -133,91 +143,19 @@ temp_df <- summarise(group_by(last_df, Клиент), Присутствие=1)
 new_df_client_test <- dplyr::left_join(new_df_client, temp_df, by = "Клиент")
 new_df_client_test[is.na(new_df_client_test)] <- 0
 
-
-parse_levels_cut <- function(levels_vec) {
-  return(
-    levels_vec %>% 
-      gsub(pattern = "\\[|\\]|\\(|\\)", replacement = "")  %>% 
-      strsplit(split = ",") %>% 
-      unlist() %>% 
-      as.numeric() %>% 
-      unique()
-  )
-}
-
-breaks_sold <- cut(df_client_train$Унес, breaks = 10)
-df_client_train$breaks_sold <- as.numeric(breaks_sold)
-new_df_client_test$breaks_sold <-  as.numeric(cut(new_df_client_test$Унес, breaks = parse_levels_cut(levels_vec = levels(breaks_sold))))
-
-breaks_marja <- cut(df_client_train$Маржа, breaks = 10)
-df_client_train$breaks_marja <- as.numeric(breaks_marja)
-new_df_client_test$breaks_marja <-  as.numeric(cut(new_df_client_test$Маржа, breaks = parse_levels_cut(levels_vec = levels(breaks_marja))))
-
-breaks_check <- cut(df_client_train$Чек, breaks = 10)
-df_client_train$breaks_check <- as.numeric(breaks_check)
-new_df_client_test$breaks_check <-  as.numeric(cut(new_df_client_test$Чек, breaks = parse_levels_cut(levels_vec = levels(breaks_check))))
-
-breaks_avg <- cut(df_client_train$Средний.интервал, breaks = 10)
-df_client_train$breaks_avg <- as.numeric(breaks_avg)
-new_df_client_test$breaks_avg <-  as.numeric(cut(new_df_client_test$Средний.интервал, breaks = parse_levels_cut(levels_vec = levels(breaks_avg))))
-breaks_diff <- cut(df_client_train$Разница, breaks = 10)
-df_client_train$breaks_diff <- as.numeric(breaks_diff)
-new_df_client_test$breaks_diff <-  as.numeric(cut(new_df_client_test$Разница, breaks = parse_levels_cut(levels_vec = levels(breaks_diff))))
-
-breaks_last <- cut(df_client_train$Прошло, breaks = 10)
-df_client_train$breaks_last <- as.numeric(breaks_last)
-new_df_client_test$breaks_last <-  as.numeric(cut(new_df_client_test$Прошло, breaks = parse_levels_cut(levels_vec = levels(breaks_last))))
-
-df_client_train$Присутствие2 <- df_client_train$Присутствие
-df_client_train <- subset(df_client_train, select = - c(Присутствие))
-names(df_client_train)[names(df_client_train)=="Присутствие2"] <- "Присутствие"
-
-new_df_client_test$Присутствие2 <- new_df_client_test$Присутствие
-new_df_client_test <- subset(new_df_client_test, select = - c(Присутствие))
-names(new_df_client_test)[names(new_df_client_test)=="Присутствие2"] <- "Присутствие"
-
-df_client_train <- na.omit(df_client_train)
-new_df_client_test <- na.omit(new_df_client_test)
-
-model <-  glm(Присутствие ~ 
-                Чек +
-                Унес +
-                Маржа +
-                Посещение1 +
-                Средний.интервал +
-                Разница +
-                Прошло +
-                breaks_sold +
-                breaks_marja +
-                breaks_check +
-                breaks_avg +
-                breaks_diff +
-                breaks_last, 
-              data=df_client_train, family = binomial(link="logit"))
-summary(model)
 predictResult <- predict(model, newdata = new_df_client_test, type="response")
 predictResult <- ifelse(predictResult >= 0.5, 1, 0 )
 #Сравниваем результат прогнозирования с последний месяцем
 #Матрица неточностей
-mx <- table(new_df_client_test$Присутствие, predictResult)
-mx
-TN <-  mx[1]
-FP <- mx[2]
-FN <- mx[3]
-TP <- mx[4]
-precision <- TP / (TP + FP)
-recall <- TP / (TP + FN)
-F1 <- 2 * precision * recall / (precision + recall)
-Accuracy <- (TP + TN) / (TP + TN + FP + FN)
-precision
-recall
-F1
-Accuracy
+library(caret)
+confusionMatrix(factor(predictResult), factor(new_df_client_test$Присутствие))
 #Точность модели
 missing_classerr <- mean(predictResult != new_df_client_test$Присутствие)
 print(paste( 'Accuracy =' , 1 - missing_classerr))
-
-
+if(!("caTools" %in% installed.packages())){
+  install.packages("caTools") 
+}
+library(caTools)
 if(!("ROCR" %in% installed.packages())){
   install.packages("ROCR") 
 }
@@ -232,9 +170,8 @@ auc
 # Построение кривой
 plot(ROCPer)
 plot(ROCPer, colorize = TRUE,
-     print.cutoffs.at = seq( 0.1 , by = 0.1),
+     print.cutoffs.at = seq( 0.1 , by = 0.1 ),
      main = "ROC CURVE" )
 abline(a = 0 , b = 1 )
 auc <- round(auc, 4)
-legend(.6 , .10 , auc, title = "AUC" , cex = 0.8)
-
+legend(.85 , .10 , auc, title = "AUC" , cex = 0.8 )
