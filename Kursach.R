@@ -90,7 +90,7 @@ group_by_client <- function(df_check, for_last_month){
 }
 
 # Группировки -------------------------------------------------------------
-#Группировки до предпоследнего месяца
+#Группировки
 df_check <- group_by_check(df) #Группировка по чекам
 df_client <- group_by_client(df_check, prelast_month) #Группировка по клиентам
 # Создание модели ---------------------------------------------------------
@@ -118,19 +118,19 @@ model <-  glm(Присутствие ~
                 Прошло, 
               data=df_client_train, family = binomial(link="logit"))
 summary(model)
-# Группировки для основного периода + предпоследнйи месяц -----------------
+# Группировки для основного периода
 new_df <- data.frame(prelast_df)
 new_df$Сумма.продажи <- as.numeric(gsub('NULL', '0', new_df$Сумма.продажи))
 new_df$Сумма.без.скидки <- as.numeric(gsub('NULL', '0', new_df$Сумма.без.скидки))
 new_df$Дата.транзакции <- as.Date(new_df$Дата.транзакции, format="%d/%m/%Y")
 new_df <- filter(new_df, 
                  Дата.транзакции > prelast_month &
+                   Дата.транзакции < last_month &
                    Кол.во - as.integer(Кол.во) == 0 &
                    Сумма.без.скидки != 0)
 new_df_check <- group_by_check(new_df)
 new_df_client <- group_by_client(new_df_check, last_month)
-
-# Группируем клиентов последнего месяца -----------------------------------
+# Группируем клиентов
 future_month <- as.Date('01/11/2022', format = "%d/%m/%Y")
 last_df <- data.frame(last_df)
 last_df$Дата.транзакции <- as.Date(last_df$Дата.транзакции, format="%d/%m/%Y")
@@ -174,4 +174,5 @@ plot(ROCPer, colorize = TRUE,
      main = "ROC CURVE" )
 abline(a = 0 , b = 1 )
 auc <- round(auc, 4)
-legend(.85 , .10 , auc, title = "AUC" , cex = 0.8 )
+legend(.65 , .10 , auc, title = "AUC" , cex = 0.8 )
+summary(date_df)
